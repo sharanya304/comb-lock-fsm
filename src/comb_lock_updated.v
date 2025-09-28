@@ -1,4 +1,3 @@
-`timescale 1ns/1ps
 module comb_lock(
     input clk, rst, enter_button,
     input [3:0] ip_pass,        // user input: 4-bit digit (BCD 0-9)
@@ -24,40 +23,42 @@ module comb_lock(
     localparam [3:0] PASS_DIGIT4 = 4'd7;
 
     // Wrong attempt counter
-    reg [1:0] attempt_count; // counts up to 3
+    reg [1:0] attempt_count; 
 
     // Timer for lock state (30 seconds simulated)
     reg [31:0] timer_count;
     parameter TIMEOUT = 32'd300000000; // adjust to clk freq (30s)
 
-    // =====================
-    // State register
-    // =====================
     always @(posedge clk or posedge rst) begin
-        if (rst) begin
-            current_state <= IDLE;
-            attempt_count <= 0;
-            timer_count   <= 0;
-        end else begin
-            current_state <= next_state;
+    if (rst) begin
+        current_state <= IDLE;
+        attempt_count <= 0;
+        timer_count   <= 0;
+    end else begin
+        current_state <= next_state;
 
-            // Timer handling in LOCK state
-            if (current_state == LOCK) begin
-                if (timer_count < TIMEOUT)
-                    timer_count <= timer_count + 1;
-                else begin
-                    timer_count   <= 0;
-                    attempt_count <= 0;  // reset attempts after timeout
-                end
-            end else begin
-                timer_count <= 0; // reset timer if not in lock state
+        // Timer handling in LOCK state
+        if (current_state == LOCK) begin
+            if (timer_count < TIMEOUT)
+                timer_count <= timer_count + 1;
+            else begin
+                timer_count   <= 0;
+                attempt_count <= 0; // reset attempts after timeout
             end
+        end else begin
+            timer_count <= 0;
         end
-    end
 
-    // =====================
+        // Attempt count logic
+        if (current_state == DENY)
+            attempt_count <= attempt_count + 1;
+        else if (current_state == GRANT)
+            attempt_count <= 0;
+    end
+end
+
+    
     // Next-state logic
-    // =====================
     always @(*) begin
         case (current_state)
             IDLE: begin
@@ -80,6 +81,7 @@ module comb_lock(
             CHECK_3: begin
                 if (ip_pass == PASS_DIGIT3) next_state = CHECK_4;
                 else                        next_state = DENY;
+                
             end
 
             CHECK_4: begin
@@ -97,54 +99,27 @@ module comb_lock(
             end
 
             LOCK: begin
-                if (timer_count < TIMEOUT)
-                    next_state = LOCK;
-                else
-                    next_state = IDLE;  // unlock after timeout
-            end
+    if (timer_count < TIMEOUT)
+        next_state = LOCK;
+    else
+        next_state = IDLE;
+end
+
 
             default: next_state = IDLE;
         endcase
     end
 
-    // =====================
+   
     // Output & attempt logic
-    // =====================
-    always @(posedge clk or posedge rst) begin
-        if (rst) begin
-            grant        <= 0;
-            deny         <= 0;
-            lock         <= 0;
-            attempt_count<= 0;
-        end else begin
-            case (current_state)
-                GRANT: begin
-                    grant <= 1;
-                    deny  <= 0;
-                    lock  <= 0;
-                    attempt_count <= 0; // reset attempts on success
-                end
+    always @(*) begin
+    case (current_state)
+        GRANT: begin grant=1; deny=0; lock=0; end
+        DENY:  begin grant=0; deny=1; lock=0; end
+        LOCK:  begin grant=0; deny=0; lock=1; end
+        default: begin grant=0; deny=0; lock=0; end
+    endcase
+end
 
-                DENY: begin
-                    grant <= 0;
-                    deny  <= 1;
-                    lock  <= 0;
-                    attempt_count <= attempt_count + 1; // increment on failure
-                end
-
-                LOCK: begin
-                    grant <= 0;
-                    deny  <= 0;
-                    lock  <= 1;
-                end
-
-                default: begin
-                    grant <= 0;
-                    deny  <= 0;
-                    lock  <= 0;
-                end
-            endcase
-        end
-    end
 
 endmodule
