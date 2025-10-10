@@ -6,11 +6,11 @@ module tb_comb_lock_simple;
   reg rst;
   reg enter_button;
   reg [3:0] ip_pass;
-
   wire grant, deny, lock;
 
   localparam CLK_PERIOD_NS = 10;
 
+  // Instantiate DUT
   comb_lock dut (
     .clk(clk),
     .rst(rst),
@@ -21,9 +21,11 @@ module tb_comb_lock_simple;
     .lock(lock)
   );
 
+  // Clock generation
   initial clk = 0;
   always #(CLK_PERIOD_NS/2) clk = ~clk;
 
+  // Test sequence
   initial begin
     // Reset
     rst = 1;
@@ -33,7 +35,7 @@ module tb_comb_lock_simple;
     rst = 0;
     #20;
 
-    // Correct code: 1, 5, 3, 7 (should GRANT)
+    // Correct code: 1, 5, 3, 7 (should grant)
     enter_button = 1; #10; enter_button = 0;
     ip_pass = 1; #10;
     ip_pass = 5; #10;
@@ -57,7 +59,7 @@ module tb_comb_lock_simple;
     ip_pass = 1; #10;
     #10;
 
-    // 3rd wrong attempt: 0, 0, 0, 0 (should LOCK)
+    // 3rd wrong attempt: 0, 0, 0, 0 (should lock)
     enter_button = 1; #10; enter_button = 0;
     ip_pass = 0; #10;
     ip_pass = 0; #10;
@@ -65,10 +67,10 @@ module tb_comb_lock_simple;
     ip_pass = 0; #10;
     #10;
 
-    // Wait for lock signal and auto-unlock timeout (assume 220ns)
+    // Wait for lock timeout (simulate 220 ns)
     #220;
 
-    // Try correct code again: 1, 5, 3, 7 (should GRANT after unlock)
+    // Try correct code again: 1, 5, 3, 7 (should grant after unlock)
     enter_button = 1; #10; enter_button = 0;
     ip_pass = 1; #10;
     ip_pass = 5; #10;
@@ -77,11 +79,6 @@ module tb_comb_lock_simple;
     #10;
 
     $finish;
-  end
-
-  initial begin
-    $monitor("Time=%0t | rst=%b enter_button=%b ip_pass=%d | grant=%b deny=%b lock=%b",
-              $time, rst, enter_button, ip_pass, grant, deny, lock);
   end
 
 endmodule
