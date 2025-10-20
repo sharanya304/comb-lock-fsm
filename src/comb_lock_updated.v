@@ -29,6 +29,7 @@ module comb_lock(
     reg [31:0] timer_count;
     parameter TIMEOUT = 32'd300000000; // adjust to clk freq (30s)
 
+    // State register
     always @(posedge clk or posedge rst) begin
     if (rst) begin
         current_state <= IDLE;
@@ -57,7 +58,6 @@ module comb_lock(
     end
 end
 
-    
     // Next-state logic
     always @(*) begin
         case (current_state)
@@ -112,14 +112,41 @@ end
 
    
     // Output & attempt logic
-    always @(*) begin
-    case (current_state)
-        GRANT: begin grant=1; deny=0; lock=0; end
-        DENY:  begin grant=0; deny=1; lock=0; end
-        LOCK:  begin grant=0; deny=0; lock=1; end
-        default: begin grant=0; deny=0; lock=0; end
-    endcase
-end
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            grant        <= 0;
+            deny         <= 0;
+            lock         <= 0;
+            attempt_count<= 0;
+        end else begin
+            case (current_state)
+                GRANT: begin
+                    grant <= 1;
+                    deny  <= 0;
+                    lock  <= 0;
+                    attempt_count <= 0; // reset attempts on success
+                end
 
+                DENY: begin
+                    grant <= 0;
+                    deny  <= 1;
+                    lock  <= 0;
+                    attempt_count <= attempt_count + 1; // increment on failure
+                end
+
+                LOCK: begin
+                    grant <= 0;
+                    deny  <= 0;
+                    lock  <= 1;
+                end
+
+                default: begin
+                    grant <= 0;
+                    deny  <= 0;
+                    lock  <= 0;
+                end
+            endcase
+        end
+    end
 
 endmodule
